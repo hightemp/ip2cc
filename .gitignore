@@ -1,0 +1,27 @@
+# Binary
+ip2cc
+ip2cc.exe
+
+# Build directory
+dist/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+
+# Cache (don't commit user cache)
+.ip2cc/
