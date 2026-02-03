@@ -1,6 +1,6 @@
-# Binary
-ip2cc
-ip2cc.exe
+# Binary (in root only)
+/ip2cc
+/ip2cc.exe
 
 # Build directory
 dist/
