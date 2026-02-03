@@ -9,86 +9,25 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build
+  goreleaser:
+    name: GoReleaser
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          
-      - name: Get version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
-          COMMIT=$(git rev-parse --short HEAD)
-          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          
-          BINARY_NAME="ip2cc_${{ matrix.goos }}_${{ matrix.goarch }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-          
-          go build -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.buildTime=${BUILD_TIME}" \
-            -o "dist/${BINARY_NAME}" ./cmd/ip2cc/
-            
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ip2cc_${{ matrix.goos }}_${{ matrix.goarch }}
-          path: dist/*
 
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
         with:
-          path: dist
-          merge-multiple: true
-          
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
-          cat checksums.txt
-          
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            dist/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
