@@ -121,45 +121,49 @@ main() {
     version=$(get_latest_version)
     install_dir=$(get_install_dir)
     
+    # Remove 'v' prefix for archive name
+    local version_num="${version#v}"
+    
     log_info "Detected: OS=$os, Arch=$arch"
     log_info "Version: $version"
     log_info "Install directory: $install_dir"
     
-    local binary_name="${BINARY_NAME}_${os}_${arch}"
-    if [[ "$os" == "windows" ]]; then
-        binary_name="${binary_name}.exe"
-    fi
-    
-    local download_url="https://github.com/${REPO}/releases/download/${version}/${binary_name}"
+    # Archive name format: ip2cc_1.0.0_linux_amd64.tar.gz
+    local archive_name="ip2cc_${version_num}_${os}_${arch}.tar.gz"
+    local download_url="https://github.com/${REPO}/releases/download/${version}/${archive_name}"
     local checksums_url="https://github.com/${REPO}/releases/download/${version}/checksums.txt"
     
     local tmp_dir
     tmp_dir=$(mktemp -d)
     trap "rm -rf $tmp_dir" EXIT
     
-    local binary_path="${tmp_dir}/${binary_name}"
+    local archive_path="${tmp_dir}/${archive_name}"
     local checksums_path="${tmp_dir}/checksums.txt"
     
-    # Download binary
-    log_info "Downloading ${binary_name}..."
-    download_file "$download_url" "$binary_path"
+    # Download archive
+    log_info "Downloading ${archive_name}..."
+    download_file "$download_url" "$archive_path"
     
     # Download and verify checksum
     log_info "Downloading checksums..."
     download_file "$checksums_url" "$checksums_path"
     
     local expected_checksum
-    expected_checksum=$(grep "${binary_name}" "$checksums_path" | awk '{print $1}')
+    expected_checksum=$(grep "${archive_name}" "$checksums_path" | awk '{print $1}')
     if [[ -n "$expected_checksum" ]]; then
-        verify_checksum "$binary_path" "$expected_checksum"
+        verify_checksum "$archive_path" "$expected_checksum"
     else
-        log_warn "Checksum not found for ${binary_name}, skipping verification"
+        log_warn "Checksum not found for ${archive_name}, skipping verification"
     fi
+    
+    # Extract archive
+    log_info "Extracting..."
+    tar -xzf "$archive_path" -C "$tmp_dir"
     
     # Install binary
     log_info "Installing to ${install_dir}/${BINARY_NAME}..."
-    chmod +x "$binary_path"
-    mv "$binary_path" "${install_dir}/${BINARY_NAME}"
+    chmod +x "${tmp_dir}/${BINARY_NAME}"
+    mv "${tmp_dir}/${BINARY_NAME}" "${install_dir}/${BINARY_NAME}"
     
     # Verify installation
     if command -v "$BINARY_NAME" &> /dev/null; then

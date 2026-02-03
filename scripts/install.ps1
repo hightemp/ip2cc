@@ -96,6 +96,7 @@ function Main {
     
     # Get latest version
     $version = Get-LatestVersion
+    $versionNum = $version.TrimStart('v')
     Write-Info "Latest version: $version"
     
     # Create install directory
@@ -104,9 +105,9 @@ function Main {
         Write-Info "Created directory: $InstallDir"
     }
     
-    # Download URLs
-    $binaryFileName = "${BinaryName}_windows_${arch}.exe"
-    $downloadUrl = "https://github.com/$Repo/releases/download/$version/$binaryFileName"
+    # Archive name format: ip2cc_1.0.0_windows_amd64.zip
+    $archiveName = "${BinaryName}_${versionNum}_windows_${arch}.zip"
+    $downloadUrl = "https://github.com/$Repo/releases/download/$version/$archiveName"
     $checksumsUrl = "https://github.com/$Repo/releases/download/$version/checksums.txt"
     
     # Create temp directory
@@ -114,12 +115,12 @@ function Main {
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     
     try {
-        $binaryPath = Join-Path $tempDir $binaryFileName
+        $archivePath = Join-Path $tempDir $archiveName
         $checksumsPath = Join-Path $tempDir "checksums.txt"
         
-        # Download binary
-        Write-Info "Downloading $binaryFileName..."
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $binaryPath -UseBasicParsing
+        # Download archive
+        Write-Info "Downloading $archiveName..."
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
         
         # Download checksums
         Write-Info "Downloading checksums..."
@@ -127,19 +128,23 @@ function Main {
         
         # Verify checksum
         $checksums = Get-Content $checksumsPath
-        $expectedHash = ($checksums | Where-Object { $_ -match $binaryFileName } | ForEach-Object { ($_ -split '\s+')[0] })
+        $expectedHash = ($checksums | Where-Object { $_ -match $archiveName } | ForEach-Object { ($_ -split '\s+')[0] })
         
         if ($expectedHash) {
-            Verify-Checksum -FilePath $binaryPath -ExpectedHash $expectedHash
+            Verify-Checksum -FilePath $archivePath -ExpectedHash $expectedHash
         }
         else {
-            Write-Warn "Checksum not found for $binaryFileName, skipping verification"
+            Write-Warn "Checksum not found for $archiveName, skipping verification"
         }
+        
+        # Extract archive
+        Write-Info "Extracting..."
+        Expand-Archive -Path $archivePath -DestinationPath $tempDir -Force
         
         # Install binary
         $finalPath = Join-Path $InstallDir "$BinaryName.exe"
         Write-Info "Installing to $finalPath..."
-        Move-Item -Path $binaryPath -Destination $finalPath -Force
+        Move-Item -Path (Join-Path $tempDir "$BinaryName.exe") -Destination $finalPath -Force
         
         # Add to PATH
         $pathAdded = Add-ToPath -Directory $InstallDir
